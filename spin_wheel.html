@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spin Wheel</title>
+  <style>
+    /* Force the entire page to fill viewport, avoid browser scroll. */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* We'll scroll only inside .item-list-container */
+      font-family: Arial, sans-serif;
+    }
+
+    /* A container for the Import/Export controls, fixed at top-left corner */
+    .import-export-container {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 999;
+      display: flex;
+      gap: 10px;
+    }
+
+    .import-export-container button,
+    .import-export-container label {
+      height: 36px;
+      font-size: 14px;
+      line-height: 14px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f8f8f8;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* The main container occupying the entire viewport in a column layout */
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Top section: the wheel (50vh x 50vh) with pointer. */
+    .wheel-section {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .wheel-container {
+      position: relative;
+      width: 50vh;
+      height: 50vh;
+      max-width: 700px;  /* optional max */
+      max-height: 700px;
+    }
+
+    /* The pointer arrow is flipped horizontally (scaleX(-1)). */
+    .pointer {
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 5px); /* 5px outside the container’s right edge */
+      transform: translateY(-50%) scaleX(-1); /* flip horizontally */
+      width: 0;
+      height: 0;
+      border-top: 15px solid transparent;
+      border-bottom: 15px solid transparent;
+      border-left: 20px solid #333; /* dark gray arrow */
+    }
+
+    /* Canvas expands to fill its parent; we set its pixel size in JS. */
+    #wheelCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Row for spin & filter controls */
+    .controls-row {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Shared input/button styles */
+    input[type="text"], button {
+      height: 36px;
+      font-size: 14px;
+      line-height: 14px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f8f8f8;
+      cursor: pointer;
+    }
+    input[type="text"] {
+      cursor: text;
+      background-color: #fff;
+    }
+    input[type="text"]::placeholder {
+      color: #999;
+    }
+
+    #winnerDisplay {
+      margin-top: 10px;
+      font-weight: bold;
+      min-height: 24px;
+    }
+
+    /* Bottom section: Add item row (centered) + scrollable item list. */
+    .items-section {
+      flex: 1; /* fill leftover space vertically */
+      display: flex;
+      flex-direction: column;
+      align-items: center; /* center horizontally */
+      overflow: hidden;    /* We'll scroll inside .item-list-container only */
+      padding: 20px;
+    }
+
+    /* Centered container for the add-item form */
+    .add-item-container {
+      width: 700px;
+      max-width: 90%;
+      margin: 0 auto 20px;
+    }
+
+    /* 3-column grid for (Name, Tags, Button) so widths match item rows. */
+    .form-grid {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px; 
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Scrollable container, hidden scrollbar track. */
+    .item-list-container {
+      width: 700px;
+      max-width: 90%;
+      flex: 1; /* expand to fill available vertical space */
+      position: relative;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      overflow-y: scroll; 
+      overflow-x: hidden;
+    }
+    .item-list-container::-webkit-scrollbar { 
+      display: none; 
+    }
+    .item-list-container {
+      -ms-overflow-style: none; /* IE/Edge */
+      scrollbar-width: none;    /* Firefox */
+    }
+
+    .item-list { /* The item rows flow here. */ }
+
+    .item-row {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px; 
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+
+    .delete-btn {
+      background-color: #f8f8f8;
+    }
+  </style>
+</head>
+<body>
+  <!-- Import/Export Buttons in top-left corner -->
+  <div class="import-export-container">
+    <button type="button" onclick="exportData()">Export Data</button>
+    <label>
+      Import Data
+      <input
+        type="file"
+        accept=".json"
+        style="display:none"
+        onchange="importData(event)"
+      />
+    </label>
+  </div>
+
+  <div class="main-container">
+    <!-- Wheel Section -->
+    <div class="wheel-section">
+      <div class="wheel-container" id="wheelContainer">
+        <canvas id="wheelCanvas"></canvas>
+        <div class="pointer"></div>
+      </div>
+
+      <div class="controls-row">
+        <button onclick="spinWheel()">Spin</button>
+        <input type="text" id="filterTags" placeholder="Filter tags..." style="width:180px;" />
+        <button type="button" onclick="applyFilter()">Filter</button>
+        <button type="button" onclick="clearFilter()">Clear</button>
+      </div>
+      <div id="winnerDisplay"></div>
+    </div>
+
+    <!-- Items Section (Add Item + Scrollable List) -->
+    <div class="items-section">
+      <div class="add-item-container">
+        <form class="form-grid" onsubmit="return false;">
+          <input type="text" id="newItemName" placeholder="Enter item name..." />
+          <input type="text" id="newItemTags" placeholder="Enter comma-separated tags..." />
+          <button type="button" onclick="addItem()">Add Item</button>
+        </form>
+      </div>
+      <div class="item-list-container">
+        <div class="item-list" id="itemList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========== Data & State ===========
+    let items = [];
+    let currentId = 0;
+    let activeFilterTags = [];
+
+    // Wheel references
+    const wheelContainer = document.getElementById('wheelContainer');
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Spin logic
+    let rotationAngle = 0;
+    let spinVelocity = 0;
+    let spinning = false;
+
+    // For a smoother, ~3-second spin:
+    let friction = 0.99;       
+    let spinThreshold = 0.0002;
+
+    // ========== Initialization ==========
+    loadFromLocalStorage();
+    adjustCanvasSize();
+    renderItemList();
+    drawWheel();
+
+    // Recalculate the canvas if window changes size
+    window.addEventListener('resize', () => {
+      adjustCanvasSize();
+      drawWheel();
+    });
+
+    function adjustCanvasSize() {
+      const rect = wheelContainer.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+
+    // ========== Item Management ==========
+
+    function addItem() {
+      const nameInput = document.getElementById('newItemName');
+      const tagsInput = document.getElementById('newItemTags');
+
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("Item name cannot be empty.");
+        return;
+      }
+      const tags = tagsInput.value
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t);
+
+      items.push({ id: currentId++, name, tags });
+
+      nameInput.value = '';
+      tagsInput.value = '';
+      saveToLocalStorage();
+      renderItemList();
+      drawWheel();
+    }
+
+    function updateItemName(id, newName) {
+      const idx = items.findIndex(i => i.id === id);
+      if (idx !== -1) {
+        items[idx].name = newName;
+        saveToLocalStorage();
+        drawWheel();
+      }
+    }
+
+    function updateItemTags(id, tagsString) {
+      const newTags = tagsString
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t);
+
+      const idx = items.findIndex(i => i.id === id);
+      if (idx !== -1) {
+        items[idx].tags = newTags;
+        saveToLocalStorage();
+        drawWheel();
+      }
+    }
+
+    function deleteItem(id) {
+      items = items.filter(i => i.id !== id);
+      saveToLocalStorage();
+      renderItemList();
+      drawWheel();
+    }
+
+    // ========== Filtering ==========
+
+    function applyFilter() {
+      const filterVal = document.getElementById('filterTags').value.trim();
+      if (!filterVal) {
+        clearFilter();
+        return;
+      }
+      activeFilterTags = filterVal
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t);
+
+      renderItemList();
+      drawWheel();
+    }
+
+    function clearFilter() {
+      activeFilterTags = [];
+      document.getElementById('filterTags').value = '';
+      renderItemList();
+      drawWheel();
+    }
+
+    function matchesFilter(item) {
+      if (!activeFilterTags.length) return true;
+      return activeFilterTags.every(t => item.tags.includes(t));
+    }
+
+    // ========== Render List ==========
+
+    function renderItemList() {
+      const itemListEl = document.getElementById('itemList');
+      itemListEl.innerHTML = '';
+
+      items.forEach(item => {
+        if (!matchesFilter(item)) return;
+
+        const row = document.createElement('div');
+        row.className = 'item-row';
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.placeholder = 'Item name...';
+        nameInput.value = item.name;
+        nameInput.oninput = () => updateItemName(item.id, nameInput.value);
+
+        const tagsInput = document.createElement('input');
+        tagsInput.type = 'text';
+        tagsInput.placeholder = 'Tags...';
+        tagsInput.value = item.tags.join(', ');
+        tagsInput.oninput = () => updateItemTags(item.id, tagsInput.value);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteItem(item.id);
+
+        row.appendChild(nameInput);
+        row.appendChild(tagsInput);
+        row.appendChild(delBtn);
+
+        itemListEl.appendChild(row);
+      });
+    }
+
+    // ========== Drawing the Wheel ==========
+
+    function drawWheel() {
+      const visibleItems = items.filter(matchesFilter);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!visibleItems.length) {
+        const radius = Math.min(canvas.width, canvas.height) / 2 - 2;
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, canvas.height/2, radius, 0, 2*Math.PI);
+        ctx.fillStyle = '#eee';
+        ctx.fill();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#666';
+        ctx.font = '20px Arial';
+        ctx.fillText('No Items', canvas.width/2, canvas.height/2);
+        return;
+      }
+
+      const arcAngle = (2*Math.PI) / visibleItems.length;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = Math.min(canvas.width, canvas.height) / 2 - 2;
+
+      for (let i=0; i<visibleItems.length; i++) {
+        const item = visibleItems[i];
+        const startAngle = arcAngle * i + rotationAngle;
+        const endAngle = startAngle + arcAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.fillStyle = getSegmentColor(i, visibleItems.length);
+        ctx.fill();
+        ctx.stroke();
+
+        // Add text
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate((startAngle + endAngle)/2);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#000';
+        ctx.font = '14px Arial';
+        ctx.fillText(item.name, radius - 70, 5);
+        ctx.restore();
+      }
+    }
+
+    function getSegmentColor(i, total) {
+      const hue = (360 / total) * i;
+      return `hsl(${hue}, 60%, 70%)`;
+    }
+
+    // ========== Spinning Logic ==========
+
+    function spinWheel() {
+      const visibleItems = items.filter(matchesFilter);
+      if (!visibleItems.length) {
+        alert("No items to spin!");
+        return;
+      }
+      if (spinning) return;
+
+      spinning = true;
+
+      const winnerDisplay = document.getElementById('winnerDisplay');
+      winnerDisplay.textContent = "";
+
+      // Randomize the starting angle so each spin is unique
+      random = Math.random();
+      rotationAngle = random * 2 * Math.PI;
+      console.log("random = " + random);
+
+      // Larger initial velocity => longer spin (~3s).
+      spinVelocity = 0.55;
+
+      function animateSpin() {
+        rotationAngle += spinVelocity;
+        rotationAngle %= (2*Math.PI);
+        spinVelocity *= friction; // apply friction every frame
+
+        drawWheel();
+
+        // We'll stop once spinVelocity is very small:
+        if (spinVelocity > spinThreshold) {
+          requestAnimationFrame(animateSpin);
+        } else {
+          spinning = false;
+          spinVelocity = 0;
+          pickWinner();
+        }
+      }
+      requestAnimationFrame(animateSpin);
+    }
+
+    function pickWinner() {
+      const visibleItems = items.filter(matchesFilter);
+      const winnerDisplay = document.getElementById('winnerDisplay');
+
+      if (!visibleItems.length) {
+        winnerDisplay.textContent = "No winner (no items)";
+        return;
+      }
+
+      const arcAngle = (2*Math.PI) / visibleItems.length;
+      let localAngle = -rotationAngle;
+      localAngle = (localAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+
+      const idx = Math.floor(localAngle / arcAngle);
+      const winner = visibleItems[idx];
+      winnerDisplay.textContent = `Winner: ${winner.name}`;
+    }
+
+    // ========== Persistence ==========
+
+    function saveToLocalStorage() {
+      const data = { currentId, items };
+      localStorage.setItem('spinWheelData', JSON.stringify(data));
+    }
+
+    function loadFromLocalStorage() {
+      const raw = localStorage.getItem('spinWheelData');
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        if (data && Array.isArray(data.items)) {
+          items = data.items;
+          currentId = data.currentId || 0;
+        }
+      } catch(e) {
+        console.warn("Failed to parse localStorage data:", e);
+      }
+    }
+
+    // ========== Import/Export ==========
+
+    function exportData() {
+      // Convert items/currentId to JSON, then trigger download
+      const dataStr = JSON.stringify({ currentId, items }, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'spinWheelData.json';
+      link.click();
+
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && Array.isArray(imported.items)) {
+            items = imported.items;
+            currentId = imported.currentId || 0;
+            saveToLocalStorage();
+            renderItemList();
+            drawWheel();
+          } else {
+            alert("Invalid JSON format for items.");
+          }
+        } catch (err) {
+          alert("Failed to parse JSON file.");
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset file input so user can re-import the same file if needed
+      event.target.value = "";
+    }
+  </script>
+</body>
+</html>
