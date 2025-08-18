@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Spin Wheel — Centered with Side Panels</title>
+  <title>Spin Wheel — Datasets 4-Column Actions (Live Count)</title>
   <style>
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100%;
       font-family: Arial, sans-serif;
+      overflow: hidden; /* columns manage their own scroll */
+      -webkit-user-select: none; user-select: none;
     }
 
     /* ======= 3-column shell ======= */
@@ -14,49 +16,25 @@
       display: flex;
       width: 100vw;
       height: 100vh;
-      overflow: hidden; /* each column manages its own scroll */
+      overflow: hidden;
+      background: #fff;
     }
 
     /* Left + Right sidebars */
     .sidebar {
-      flex: 0 0 320px;
-      width: 320px;
-      display: flex;
-      flex-direction: column;
-      background: #fafafa;
-      box-sizing: border-box;
+      flex: 0 0 360px;   /* restored width */
+      width: 360px;
+      display: flex; flex-direction: column;
+      background: #fafafa; box-sizing: border-box;
     }
-    .sidebar.left { border-right: 1px solid #ddd; }
+    .sidebar.left  { border-right: 1px solid #ddd; }
     .sidebar.right { border-left: 1px solid #ddd; }
+    .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
-    /* Independent column scrolling */
-    .sidebar-scroll, .content-scroll {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
-    /* ======= Left sidebar content ======= */
-    .import-export-container {
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      border-bottom: 1px solid #e5e5e5;
-      background: #fff;
-    }
-    .import-export-container button,
-    .import-export-container label {
-      height: 36px; font-size: 14px; line-height: 14px; padding: 0 12px;
-      box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
-      background-color: #f8f8f8; cursor: pointer; display: inline-flex; align-items: center;
-    }
-    .import-export-container .danger {
-      border-color: #e2b4b4; background-color: #ffecec; color: #a40000;
-    }
-
+    /* ======= Left: datasets ======= */
     .datasets-header {
       padding: 12px; border-bottom: 1px solid #e5e5e5;
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; background:#fff;
     }
     .datasets-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
     .badge {
@@ -64,20 +42,69 @@
       padding: 0 8px; height: 24px; border-radius: 4px; border: 1px solid #ddd;
       background: #f5f5f5; font-size: 12px; color: #333;
     }
-    .datasets-content { padding: 10px; }
-    .dataset-row {
-      display: grid; grid-template-columns: minmax(0,1fr) 100px 70px;
-      gap: 8px; align-items: center; background: #fff;
-      border: 1px solid #e6e6e6; border-radius: 6px; padding: 8px; margin-bottom: 8px;
-    }
-    .dataset-row.active { border-color: #4c9ffe; box-shadow: 0 0 0 2px rgba(76,159,254,0.15) inset; }
-    .dataset-name { height: 32px; font-size: 14px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; }
-    .dataset-info { display:inline-flex; align-items:center; justify-content:center; padding: 0 8px; height: 32px; border-radius: 4px; border: 1px solid #ddd; background: #f5f5f5; font-size: 12px; color:#333; }
-    .switch-btn { height: 32px; }
 
-    /* ======= Right sidebar content (History) ======= */
+    .datasets-content { padding: 10px; }
+
+    /* 2-row dataset item */
+    .dataset-row {
+      display: grid;
+      grid-template-rows: auto auto;  /* top name, bottom actions/info */
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #e6e6e6; border-radius: 8px;
+      padding: 10px; margin-bottom: 10px;
+    }
+    .dataset-row.active {
+      border-color: #4c9ffe; box-shadow: 0 0 0 2px rgba(76,159,254,0.15) inset;
+    }
+
+    .dataset-top { display: block; }
+    .dataset-name {
+      width: 100%; height: 34px; font-size: 14px; padding: 0 10px;
+      box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; background: #fff;
+    }
+
+    .dataset-bottom {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr)); /* 4 equal columns */
+      gap: 8px; align-items: center;
+    }
+    .dataset-cell { display:flex; align-items:center; justify-content:center; }
+
+    .dataset-info {
+      width: 100%;
+      display:flex; align-items:center; justify-content:center;
+      height: 30px; border-radius: 6px; border: 1px solid #ddd;
+      background: #f5f5f5; font-size: 12px; color:#333;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      box-sizing: border-box; padding: 0 10px;
+    }
+
+    .btn {
+      height: 30px; width: 100%;
+      padding: 0 10px; font-size: 13px; border-radius: 6px; cursor: pointer;
+      border: 1px solid #ccc; background: #fff; box-sizing: border-box;
+    }
+    .btn.primary { border-color: #8ab4ff; background: #eef6ff; color: #0a58ca; }
+    .btn.danger  { border-color: #e2b4b4; background: #ffecec; color: #a40000; }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+
+    /* Footer: Add + Import (identical style) */
+    .sidebar-footer {
+      padding: 10px; border-top: 1px solid #e5e5e5; background: #fff;
+    }
+    .footer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .footer-btn {
+      height: 36px; font-size: 14px; border-radius: 8px; cursor: pointer;
+      border: 1px dashed #8ab4ff; background: #eef6ff; color: #0a58ca; text-align: center;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .footer-btn input[type="file"] { display:none; }
+
+    /* ======= Right: history ======= */
     .history-header {
-      padding: 12px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; gap: 8px; background:#fff;
+      padding: 12px; border-bottom: 1px solid #e5e5e5;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; background:#fff;
     }
     .history-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
     .history-controls { display: flex; gap: 6px; }
@@ -86,37 +113,18 @@
     .history-item { background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 8px; margin-bottom: 8px; font-size: 13px; line-height: 1.3; }
     .history-item .time { color: #666; font-size: 12px; margin-top: 4px; }
 
-    /* ======= Center column ======= */
-    .content {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      min-width: 0; /* avoid overflow */
-      background: #fff;
-    }
-    .content-scroll { padding: 0 20px; }
-
-    /* This inner container is what stays centered */
+    /* ======= Center (no scrollbar) ======= */
+    .content { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; background: #fff; overflow: hidden; }
     .center-inner {
-      max-width: 1200px;
-      margin: 0 auto;              /* <-- centers within the middle column */
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 0 30px;
-      box-sizing: border-box;
+      max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;
+      padding: 20px 20px 24px; box-sizing: border-box; height: 100%;
     }
 
-    /* Wheel & controls */
-    .wheel-section { display: flex; flex-direction: column; align-items: center; }
-    .wheel-container {
-      position: relative; width: 50vh; height: 50vh; max-width: 700px; max-height: 700px;
-      cursor: grab; touch-action: none;
-    }
+    .wheel-section { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
+    .wheel-container { position: relative; width: 50vh; height: 50vh; max-width: 700px; max-height: 700px; cursor: grab; touch-action: none; }
     .wheel-container.grabbing { cursor: grabbing; }
     .pointer {
-      position: absolute; top: 50%; left: calc(100% + 5px);
-      transform: translateY(-50%) scaleX(-1);
+      position: absolute; top: 50%; left: calc(100% + 5px); transform: translateY(-50%) scaleX(-1);
       width: 0; height: 0; border-top: 15px solid transparent; border-bottom: 15px solid transparent;
       border-left: 20px solid #333; pointer-events: none;
     }
@@ -131,83 +139,86 @@
     input::placeholder { color: #999; }
     #winnerDisplay { margin-top: 10px; font-weight: bold; min-height: 24px; }
 
-    /* Items list */
-    .items-section { display: flex; flex-direction: column; align-items: center; width: 100%; }
-    .add-item-container { width: 900px; max-width: 95%; margin: 20px auto; }
+    .items-section { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; width: 100%; min-height: 0; margin-top: 16px; }
+    .add-item-container { width: 900px; max-width: 95%; margin: 0 auto 10px; }
     .form-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px 120px; gap: 10px; align-items: center; }
     .item-list-container {
-      width: 900px; max-width: 95%;
+      flex: 1 1 auto; min-height: 0; width: 900px; max-width: 95%;
       position: relative; border: 1px solid #ccc; border-radius: 4px; padding: 10px;
-      max-height: 340px; overflow-y: auto; overflow-x: hidden; background: #fff;
+      overflow-y: auto; overflow-x: hidden; background: #fff;
     }
-    .item-list-container::-webkit-scrollbar{ display:none } .item-list-container{ -ms-overflow-style:none; scrollbar-width:none; }
+    .item-list-container::-webkit-scrollbar{ display:none } 
+    .item-list-container{ -ms-overflow-style:none; scrollbar-width:none; }
     .item-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px 120px; gap: 10px; align-items: center; margin-bottom: 8px; width: 100%; }
     .delete-btn { background-color: #f8f8f8; }
 
-    /* Responsive: narrow screens stack sidebars below automatically (browser will show horizontal scrollbar otherwise) */
     @media (max-width: 900px) {
       .shell { display: block; overflow: auto; }
-      .sidebar.left, .sidebar.right { width: 100%; border: 0; }
+      html, body { overflow: auto; height: auto; }
+      .sidebar { width: 100%; border: 0; }
+      .content { height: auto; }
+      .wheel-container { width: min(70vw, 500px); height: min(70vw, 500px); }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <!-- LEFT: Buttons + Datasets -->
+    <!-- LEFT: Datasets -->
     <aside class="sidebar left">
-      <div class="import-export-container">
-        <button type="button" onclick="exportData()">Export Data</button>
-        <label>
-          Import Data
-          <input type="file" accept=".json" style="display:none" onchange="importData(event)" />
-        </label>
-        <button type="button" class="danger" onclick="clearData()">Clear Data</button>
+      <div class="datasets-header">
+        <h3>Datasets</h3>
+        <span class="badge" id="activeDatasetBadge">Active: —</span>
       </div>
 
       <div class="sidebar-scroll">
-        <div class="datasets-header">
-          <h3>Datasets</h3>
-          <span class="badge" id="activeDatasetBadge">Active: —</span>
-        </div>
         <div class="datasets-content">
           <div id="datasetList"></div>
         </div>
       </div>
+
+      <!-- Footer: Add + Import (same style) -->
+      <div class="sidebar-footer">
+        <div class="footer-row">
+          <button class="footer-btn" type="button" onclick="addDataset()">+ Add Dataset</button>
+          <label class="footer-btn" title="Import dataset JSON">
+            Import
+            <input type="file" accept=".json" onchange="importData(event)" />
+          </label>
+        </div>
+      </div>
     </aside>
 
-    <!-- CENTER: Wheel + Items (always centered) -->
+    <!-- CENTER: Wheel + Items -->
     <main class="content">
-      <div class="content-scroll">
-        <div class="center-inner">
-          <section class="wheel-section">
-            <div class="wheel-container" id="wheelContainer">
-              <canvas id="wheelCanvas"></canvas>
-              <div class="pointer"></div>
-            </div>
+      <div class="center-inner">
+        <section class="wheel-section">
+          <div class="wheel-container" id="wheelContainer">
+            <canvas id="wheelCanvas"></canvas>
+            <div class="pointer"></div>
+          </div>
 
-            <div class="controls-row">
-              <button onclick="spinWheel()">Spin</button>
-              <input type="text" id="filterTags" placeholder="Filter tags..." style="width:180px;" />
-              <button type="button" onclick="applyFilter()">Filter</button>
-              <button type="button" onclick="clearFilter()">Clear</button>
-            </div>
-            <div id="winnerDisplay"></div>
-          </section>
+          <div class="controls-row">
+            <button onclick="spinWheel()">Spin</button>
+            <input type="text" id="filterTags" placeholder="Filter tags..." style="width:180px;" />
+            <button type="button" onclick="applyFilter()">Filter</button>
+            <button type="button" onclick="clearFilter()">Clear</button>
+          </div>
+          <div id="winnerDisplay"></div>
+        </section>
 
-          <section class="items-section">
-            <div class="add-item-container">
-              <form class="form-grid" onsubmit="return false;">
-                <input type="text" id="newItemName" placeholder="Enter item name..." />
-                <input type="text" id="newItemTags" placeholder="Enter comma-separated tags..." />
-                <input type="number" id="newItemWeight" placeholder="Weight (default 1)" min="0.0001" step="0.01" />
-                <button type="button" onclick="addItem()">Add Item</button>
-              </form>
-            </div>
-            <div class="item-list-container">
-              <div class="item-list" id="itemList"></div>
-            </div>
-          </section>
-        </div>
+        <section class="items-section">
+          <div class="add-item-container">
+            <form class="form-grid" onsubmit="return false;">
+              <input type="text" id="newItemName" placeholder="Enter item name..." />
+              <input type="text" id="newItemTags" placeholder="Enter comma-separated tags..." />
+              <input type="number" id="newItemWeight" placeholder="Weight (default 1)" min="0.0001" step="0.01" />
+              <button type="button" onclick="addItem()">Add Item</button>
+            </form>
+          </div>
+          <div class="item-list-container">
+            <div class="item-list" id="itemList"></div>
+          </div>
+        </section>
       </div>
     </main>
 
@@ -305,7 +316,7 @@
       ds.currentId = currentId;
       ds.history = history;
       saveDatasets();
-      renderDatasetsList(); // update counts
+      // no forced re-render here to preserve dataset input focus UX
     }
 
     function addDatasetFromImport(name, imported) {
@@ -326,16 +337,70 @@
       activeDatasetId = ds.id;
       saveDatasets();
       setActiveDataset(ds.id);
+      renderDatasetsList();
     }
 
-    function renameDataset(id, newName) {
+    /* Inline rename without re-render (prevents focus loss) */
+    function renameDatasetInline(id, newName) {
       const ds = datasets.find(d => d.id === id);
       if (!ds) return;
       ds.name = newName || 'Untitled';
       saveDatasets();
-      renderDatasetsList();
       if (id === activeDatasetId) {
         document.getElementById('activeDatasetBadge').textContent = 'Active: ' + ds.name;
+      }
+    }
+
+    function addDataset() {
+      const index = datasets.length + 1;
+      const ds = { id: newId(), name: `Dataset ${index}`, items: [], currentId: 0, history: [] };
+      datasets.unshift(ds);
+      saveDatasets();
+      setActiveDataset(ds.id);
+      renderDatasetsList();
+      setTimeout(() => {
+        const input = document.querySelector(`.dataset-name[data-dsid="${ds.id}"]`);
+        if (input) { input.focus(); input.select(); }
+      }, 0);
+    }
+
+    function exportDataset(dsId) {
+      const ds = datasets.find(d => d.id === dsId);
+      if (!ds) return;
+      const payload = { currentId: ds.currentId || 0, items: ds.items || [] };
+      const dataStr = JSON.stringify(payload, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(ds.name || 'dataset').replace(/[^\w\-]+/g,'_')}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      if (dsId === activeDatasetId) pushHistory('export_items', { itemCount: (ds.items || []).length });
+    }
+
+    function deleteDataset(dsId) {
+      const ds = datasets.find(d => d.id === dsId);
+      if (!ds) return;
+      const step1 = confirm(`Delete dataset "${ds.name}"?`);
+      if (!step1) return;
+      const step2 = confirm('This will remove the dataset and its items/history from this browser. Continue?');
+      if (!step2) return;
+
+      datasets = datasets.filter(d => d.id !== dsId);
+
+      if (!datasets.length) {
+        const fallback = { id: newId(), name: 'Default', items: [], currentId: 0, history: [] };
+        datasets.push(fallback);
+      }
+
+      if (activeDatasetId === dsId) {
+        activeDatasetId = datasets[0].id;
+        saveDatasets();
+        setActiveDataset(activeDatasetId);
+      } else {
+        saveDatasets();
+        renderDatasetsList();
       }
     }
 
@@ -347,26 +412,64 @@
         const row = document.createElement('div');
         row.className = 'dataset-row' + (ds.id === activeDatasetId ? ' active' : '');
 
+        /* Top row: Name (inline-edit, no re-render on input) */
+        const top = document.createElement('div');
+        top.className = 'dataset-top';
         const nameInput = document.createElement('input');
         nameInput.className = 'dataset-name';
         nameInput.value = ds.name || 'Untitled';
-        nameInput.oninput = () => renameDataset(ds.id, nameInput.value);
+        nameInput.setAttribute('data-dsid', ds.id);
+        nameInput.addEventListener('input', () => renameDatasetInline(ds.id, nameInput.value));
+        nameInput.addEventListener('blur', () => renderDatasetsList());
+        top.appendChild(nameInput);
 
+        /* Bottom row: 4 equal columns (Info • Apply • Export • Delete) */
+        const bottom = document.createElement('div');
+        bottom.className = 'dataset-bottom';
+
+        const infoWrap = document.createElement('div');
+        infoWrap.className = 'dataset-cell';
         const info = document.createElement('span');
         info.className = 'dataset-info';
+        info.setAttribute('data-dsid', ds.id);            /* tag for live updates */
         const itemCount = (ds.items || []).length;
-        const histCount = (ds.history || []).length;
-        info.textContent = `${itemCount} items • ${histCount} logs`;
+        info.textContent = `${itemCount} items`;
+        infoWrap.appendChild(info);
 
-        const btn = document.createElement('button');
-        btn.className = 'switch-btn';
-        btn.textContent = (ds.id === activeDatasetId) ? 'Active' : 'Switch';
-        btn.disabled = (ds.id === activeDatasetId);
-        btn.onclick = () => setActiveDataset(ds.id);
+        const applyWrap = document.createElement('div');
+        applyWrap.className = 'dataset-cell';
+        const applyBtn = document.createElement('button');
+        applyBtn.className = 'btn primary';
+        applyBtn.textContent = (ds.id === activeDatasetId) ? 'Applied' : 'Apply';
+        applyBtn.disabled = (ds.id === activeDatasetId);
+        applyBtn.onclick = () => setActiveDataset(ds.id);
+        applyWrap.appendChild(applyBtn);
 
-        row.appendChild(nameInput);
-        row.appendChild(info);
-        row.appendChild(btn);
+        const exportWrap = document.createElement('div');
+        exportWrap.className = 'dataset-cell';
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'btn';
+        exportBtn.textContent = 'Export';
+        exportBtn.title = 'Export items JSON';
+        exportBtn.onclick = () => exportDataset(ds.id);
+        exportWrap.appendChild(exportBtn);
+
+        const deleteWrap = document.createElement('div');
+        deleteWrap.className = 'dataset-cell';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn danger';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.title = 'Delete this dataset';
+        deleteBtn.onclick = () => deleteDataset(ds.id);
+        deleteWrap.appendChild(deleteBtn);
+
+        bottom.appendChild(infoWrap);
+        bottom.appendChild(applyWrap);
+        bottom.appendChild(exportWrap);
+        bottom.appendChild(deleteWrap);
+
+        row.appendChild(top);
+        row.appendChild(bottom);
         listEl.appendChild(row);
       });
     }
@@ -404,8 +507,6 @@
     const DECAY_PER_SECOND = 0.55;
     const MIN_VELOCITY_RAD_S = 0.05;
     const BUTTON_START_V_RAD_S = 8.0;
-    const CANCEL_V = 0.25;
-    const SPIN_START_V = 0.50;
 
     const historyContentEl = document.getElementById('historyContent');
 
@@ -437,6 +538,12 @@
     }
     function normAngleDelta(d) { while (d > Math.PI) d -= 2*Math.PI; while (d < -Math.PI) d += 2*Math.PI; return d; }
 
+    /* Live-update the active dataset's info pill without re-rendering the list */
+    function refreshActiveDatasetInfoPill() {
+      const el = document.querySelector(`.dataset-info[data-dsid="${activeDatasetId}"]`);
+      if (el) el.textContent = `${items.length} items`;
+    }
+
     /************ Items ************/
     function addItem() {
       const nameInput = document.getElementById('newItemName');
@@ -455,6 +562,7 @@
       nameInput.value = ''; tagsInput.value = ''; weightInput.value = '';
       updateActiveDatasetSnapshot(); renderItemList(); drawWheel();
 
+      refreshActiveDatasetInfoPill(); /* live count */
       pushHistory('add_item', { name: newItem.name, tags: newItem.tags, weight: newItem.weight });
     }
     function updateItemName(id, newName) {
@@ -489,6 +597,8 @@
       const item = items.find(i => i.id === id);
       items = items.filter(i => i.id !== id);
       updateActiveDatasetSnapshot(); renderItemList(); drawWheel();
+
+      refreshActiveDatasetInfoPill(); /* live count */
       pushHistory('delete_item', { name: item ? item.name : '(unknown)' });
     }
 
@@ -588,7 +698,7 @@
 
       drawWheel();
 
-      if (Math.abs(spinVelocity) > MIN_VELOCITY_RAD_S) {
+      if (Math.abs(spinVelocity) > 0.05) {
         rafId = requestAnimationFrame(animateSpin);
       } else {
         spinning = false; spinVelocity = 0; lastAnimTime = null; rafId = null;
@@ -606,7 +716,7 @@
       document.getElementById('winnerDisplay').textContent = "";
 
       rotationAngle = Math.random() * 2 * Math.PI;
-      spinVelocity = BUTTON_START_V_RAD_S;
+      spinVelocity = 8.0; /* start speed */
       lastAnimTime = null;
       rafId = requestAnimationFrame(animateSpin);
     }
@@ -670,10 +780,10 @@
       drawWheel();
 
       const now = performance.now();
-      if (Math.abs(d) >= MOVE_EPS) lastSignificantMoveTs = now;
+      if (Math.abs(d) >= 0.01) lastSignificantMoveTs = now;
 
       velocitySamples.push({ t: now, dAngle: d });
-      const cutoff = now - VELOCITY_WINDOW_MS;
+      const cutoff = now - 120;
       while (velocitySamples.length && velocitySamples[0].t < cutoff) velocitySamples.shift();
 
       lastPointerAngle = ang;
@@ -688,7 +798,7 @@
       lastPointerAngle = null;
 
       const now = performance.now();
-      const heldLongEnough = (now - lastSignificantMoveTs) >= HOLD_TO_CANCEL_MS;
+      const heldLongEnough = (now - lastSignificantMoveTs) >= 120;
 
       if (!velocitySamples.length) {
         if (wasSpinningBeforeDrag) { suppressPick = false; pickWinner(); }
@@ -709,6 +819,7 @@
         vInstant = (b.dAngle / dt) * 1000;
       } else { vInstant = vWindow; }
 
+      // Cancel if held and not moving fast
       if (!wasSpinningBeforeDrag && heldLongEnough && Math.abs(vInstant) < 0.25) return;
       if (wasSpinningBeforeDrag && heldLongEnough && Math.abs(vInstant) < 0.25) { suppressPick = false; pickWinner(); return; }
 
@@ -733,16 +844,7 @@
       if (isDragging && !canvas.hasPointerCapture?.(e.pointerId)) endDrag(e);
     });
 
-    /************ Import / Export / Clear ************/
-    function exportData() {
-      const dataStr = JSON.stringify({ currentId, items }, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; link.download = 'spinWheelData.json'; link.click();
-      URL.revokeObjectURL(url);
-      pushHistory('export_items', { itemCount: items.length });
-    }
-
+    /************ Import (footer) ************/
     function importData(event) {
       const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
@@ -761,18 +863,6 @@
         }
       };
       reader.readAsText(file); event.target.value = "";
-    }
-
-    function clearData() {
-      const step1 = confirm('This will clear all current ITEMS in the active dataset. Continue?');
-      if (!step1) return;
-      const step2 = confirm('Are you absolutely sure? This cannot be undone.');
-      if (!step2) return;
-
-      items = []; currentId = 0;
-      updateActiveDatasetSnapshot();
-      renderItemList(); drawWheel();
-      pushHistory('clear_items', {});
     }
 
     /************ History (per dataset) ************/
