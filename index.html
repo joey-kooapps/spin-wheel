@@ -2,567 +2,842 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Spin Wheel</title>
+  <title>Spin Wheel — Centered with Side Panels</title>
   <style>
-    /* Force the entire page to fill viewport, avoid browser scroll. */
     html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden; /* We'll scroll only inside .item-list-container */
+      margin: 0; padding: 0; width: 100%; height: 100%;
       font-family: Arial, sans-serif;
     }
 
-    /* A container for the Import/Export controls, fixed at top-left corner */
-    .import-export-container {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
+    /* ======= 3-column shell ======= */
+    .shell {
       display: flex;
-      gap: 10px;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden; /* each column manages its own scroll */
     }
 
-    .import-export-container button,
-    .import-export-container label {
-      height: 36px;
-      font-size: 14px;
-      line-height: 14px;
-      padding: 0 12px;
+    /* Left + Right sidebars */
+    .sidebar {
+      flex: 0 0 320px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
       box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background-color: #f8f8f8;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
     }
+    .sidebar.left { border-right: 1px solid #ddd; }
+    .sidebar.right { border-left: 1px solid #ddd; }
 
-    /* The main container occupying the entire viewport in a column layout */
-    .main-container {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Top section: the wheel (50vh x 50vh) with pointer. */
-    .wheel-section {
-      flex: 0 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-    }
-    .wheel-container {
-      position: relative;
-      width: 50vh;
-      height: 50vh;
-      max-width: 700px;  /* optional max */
-      max-height: 700px;
-    }
-
-    /* The pointer arrow is flipped horizontally (scaleX(-1)). */
-    .pointer {
-      position: absolute;
-      top: 50%;
-      left: calc(100% + 5px); /* 5px outside the container’s right edge */
-      transform: translateY(-50%) scaleX(-1); /* flip horizontally */
-      width: 0;
-      height: 0;
-      border-top: 15px solid transparent;
-      border-bottom: 15px solid transparent;
-      border-left: 20px solid #333; /* dark gray arrow */
-    }
-
-    /* Canvas expands to fill its parent; we set its pixel size in JS. */
-    #wheelCanvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Row for spin & filter controls */
-    .controls-row {
-      margin-top: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-    }
-
-    /* Shared input/button styles */
-    input[type="text"], button {
-      height: 36px;
-      font-size: 14px;
-      line-height: 14px;
-      padding: 0 12px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background-color: #f8f8f8;
-      cursor: pointer;
-    }
-    input[type="text"] {
-      cursor: text;
-      background-color: #fff;
-    }
-    input[type="text"]::placeholder {
-      color: #999;
-    }
-
-    #winnerDisplay {
-      margin-top: 10px;
-      font-weight: bold;
-      min-height: 24px;
-    }
-
-    /* Bottom section: Add item row (centered) + scrollable item list. */
-    .items-section {
-      flex: 1; /* fill leftover space vertically */
-      display: flex;
-      flex-direction: column;
-      align-items: center; /* center horizontally */
-      overflow: hidden;    /* We'll scroll inside .item-list-container only */
-      padding: 20px;
-    }
-
-    /* Centered container for the add-item form */
-    .add-item-container {
-      width: 700px;
-      max-width: 90%;
-      margin: 0 auto 20px;
-    }
-
-    /* 3-column grid for (Name, Tags, Button) so widths match item rows. */
-    .form-grid {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px; 
-      gap: 10px;
-      align-items: center;
-    }
-
-    /* Scrollable container, hidden scrollbar track. */
-    .item-list-container {
-      width: 700px;
-      max-width: 90%;
-      flex: 1; /* expand to fill available vertical space */
-      position: relative;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 10px;
-      overflow-y: scroll; 
+    /* Independent column scrolling */
+    .sidebar-scroll, .content-scroll {
+      flex: 1;
+      overflow-y: auto;
       overflow-x: hidden;
     }
-    .item-list-container::-webkit-scrollbar { 
-      display: none; 
-    }
-    .item-list-container {
-      -ms-overflow-style: none; /* IE/Edge */
-      scrollbar-width: none;    /* Firefox */
-    }
 
-    .item-list { /* The item rows flow here. */ }
-
-    .item-row {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px; 
+    /* ======= Left sidebar content ======= */
+    .import-export-container {
+      display: flex;
       gap: 10px;
-      align-items: center;
-      margin-bottom: 8px;
-      width: 100%;
+      padding: 10px;
+      border-bottom: 1px solid #e5e5e5;
+      background: #fff;
+    }
+    .import-export-container button,
+    .import-export-container label {
+      height: 36px; font-size: 14px; line-height: 14px; padding: 0 12px;
+      box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
+      background-color: #f8f8f8; cursor: pointer; display: inline-flex; align-items: center;
+    }
+    .import-export-container .danger {
+      border-color: #e2b4b4; background-color: #ffecec; color: #a40000;
     }
 
-    .delete-btn {
-      background-color: #f8f8f8;
+    .datasets-header {
+      padding: 12px; border-bottom: 1px solid #e5e5e5;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .datasets-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
+    .badge {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding: 0 8px; height: 24px; border-radius: 4px; border: 1px solid #ddd;
+      background: #f5f5f5; font-size: 12px; color: #333;
+    }
+    .datasets-content { padding: 10px; }
+    .dataset-row {
+      display: grid; grid-template-columns: minmax(0,1fr) 100px 70px;
+      gap: 8px; align-items: center; background: #fff;
+      border: 1px solid #e6e6e6; border-radius: 6px; padding: 8px; margin-bottom: 8px;
+    }
+    .dataset-row.active { border-color: #4c9ffe; box-shadow: 0 0 0 2px rgba(76,159,254,0.15) inset; }
+    .dataset-name { height: 32px; font-size: 14px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; }
+    .dataset-info { display:inline-flex; align-items:center; justify-content:center; padding: 0 8px; height: 32px; border-radius: 4px; border: 1px solid #ddd; background: #f5f5f5; font-size: 12px; color:#333; }
+    .switch-btn { height: 32px; }
+
+    /* ======= Right sidebar content (History) ======= */
+    .history-header {
+      padding: 12px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; gap: 8px; background:#fff;
+    }
+    .history-header h3 { margin: 0; font-size: 16px; font-weight: bold; }
+    .history-controls { display: flex; gap: 6px; }
+    .history-controls button { height: 28px; font-size: 12px; padding: 0 8px; cursor: pointer; }
+    .history-content { padding: 10px; }
+    .history-item { background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 8px; margin-bottom: 8px; font-size: 13px; line-height: 1.3; }
+    .history-item .time { color: #666; font-size: 12px; margin-top: 4px; }
+
+    /* ======= Center column ======= */
+    .content {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-width: 0; /* avoid overflow */
+      background: #fff;
+    }
+    .content-scroll { padding: 0 20px; }
+
+    /* This inner container is what stays centered */
+    .center-inner {
+      max-width: 1200px;
+      margin: 0 auto;              /* <-- centers within the middle column */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0 30px;
+      box-sizing: border-box;
+    }
+
+    /* Wheel & controls */
+    .wheel-section { display: flex; flex-direction: column; align-items: center; }
+    .wheel-container {
+      position: relative; width: 50vh; height: 50vh; max-width: 700px; max-height: 700px;
+      cursor: grab; touch-action: none;
+    }
+    .wheel-container.grabbing { cursor: grabbing; }
+    .pointer {
+      position: absolute; top: 50%; left: calc(100% + 5px);
+      transform: translateY(-50%) scaleX(-1);
+      width: 0; height: 0; border-top: 15px solid transparent; border-bottom: 15px solid transparent;
+      border-left: 20px solid #333; pointer-events: none;
+    }
+    #wheelCanvas { display: block; width: 100%; height: 100%; }
+
+    .controls-row { margin-top: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    input[type="text"], input[type="number"], button {
+      height: 36px; font-size: 14px; line-height: 14px; padding: 0 12px;
+      box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f8f8; cursor: pointer;
+    }
+    input[type="text"], input[type="number"] { cursor: text; background-color: #fff; }
+    input::placeholder { color: #999; }
+    #winnerDisplay { margin-top: 10px; font-weight: bold; min-height: 24px; }
+
+    /* Items list */
+    .items-section { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .add-item-container { width: 900px; max-width: 95%; margin: 20px auto; }
+    .form-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px 120px; gap: 10px; align-items: center; }
+    .item-list-container {
+      width: 900px; max-width: 95%;
+      position: relative; border: 1px solid #ccc; border-radius: 4px; padding: 10px;
+      max-height: 340px; overflow-y: auto; overflow-x: hidden; background: #fff;
+    }
+    .item-list-container::-webkit-scrollbar{ display:none } .item-list-container{ -ms-overflow-style:none; scrollbar-width:none; }
+    .item-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 120px 120px; gap: 10px; align-items: center; margin-bottom: 8px; width: 100%; }
+    .delete-btn { background-color: #f8f8f8; }
+
+    /* Responsive: narrow screens stack sidebars below automatically (browser will show horizontal scrollbar otherwise) */
+    @media (max-width: 900px) {
+      .shell { display: block; overflow: auto; }
+      .sidebar.left, .sidebar.right { width: 100%; border: 0; }
     }
   </style>
 </head>
 <body>
-  <!-- Import/Export Buttons in top-left corner -->
-  <div class="import-export-container">
-    <button type="button" onclick="exportData()">Export Data</button>
-    <label>
-      Import Data
-      <input
-        type="file"
-        accept=".json"
-        style="display:none"
-        onchange="importData(event)"
-      />
-    </label>
-  </div>
-
-  <div class="main-container">
-    <!-- Wheel Section -->
-    <div class="wheel-section">
-      <div class="wheel-container" id="wheelContainer">
-        <canvas id="wheelCanvas"></canvas>
-        <div class="pointer"></div>
+  <div class="shell">
+    <!-- LEFT: Buttons + Datasets -->
+    <aside class="sidebar left">
+      <div class="import-export-container">
+        <button type="button" onclick="exportData()">Export Data</button>
+        <label>
+          Import Data
+          <input type="file" accept=".json" style="display:none" onchange="importData(event)" />
+        </label>
+        <button type="button" class="danger" onclick="clearData()">Clear Data</button>
       </div>
 
-      <div class="controls-row">
-        <button onclick="spinWheel()">Spin</button>
-        <input type="text" id="filterTags" placeholder="Filter tags..." style="width:180px;" />
-        <button type="button" onclick="applyFilter()">Filter</button>
-        <button type="button" onclick="clearFilter()">Clear</button>
+      <div class="sidebar-scroll">
+        <div class="datasets-header">
+          <h3>Datasets</h3>
+          <span class="badge" id="activeDatasetBadge">Active: —</span>
+        </div>
+        <div class="datasets-content">
+          <div id="datasetList"></div>
+        </div>
       </div>
-      <div id="winnerDisplay"></div>
-    </div>
+    </aside>
 
-    <!-- Items Section (Add Item + Scrollable List) -->
-    <div class="items-section">
-      <div class="add-item-container">
-        <form class="form-grid" onsubmit="return false;">
-          <input type="text" id="newItemName" placeholder="Enter item name..." />
-          <input type="text" id="newItemTags" placeholder="Enter comma-separated tags..." />
-          <button type="button" onclick="addItem()">Add Item</button>
-        </form>
+    <!-- CENTER: Wheel + Items (always centered) -->
+    <main class="content">
+      <div class="content-scroll">
+        <div class="center-inner">
+          <section class="wheel-section">
+            <div class="wheel-container" id="wheelContainer">
+              <canvas id="wheelCanvas"></canvas>
+              <div class="pointer"></div>
+            </div>
+
+            <div class="controls-row">
+              <button onclick="spinWheel()">Spin</button>
+              <input type="text" id="filterTags" placeholder="Filter tags..." style="width:180px;" />
+              <button type="button" onclick="applyFilter()">Filter</button>
+              <button type="button" onclick="clearFilter()">Clear</button>
+            </div>
+            <div id="winnerDisplay"></div>
+          </section>
+
+          <section class="items-section">
+            <div class="add-item-container">
+              <form class="form-grid" onsubmit="return false;">
+                <input type="text" id="newItemName" placeholder="Enter item name..." />
+                <input type="text" id="newItemTags" placeholder="Enter comma-separated tags..." />
+                <input type="number" id="newItemWeight" placeholder="Weight (default 1)" min="0.0001" step="0.01" />
+                <button type="button" onclick="addItem()">Add Item</button>
+              </form>
+            </div>
+            <div class="item-list-container">
+              <div class="item-list" id="itemList"></div>
+            </div>
+          </section>
+        </div>
       </div>
-      <div class="item-list-container">
-        <div class="item-list" id="itemList"></div>
+    </main>
+
+    <!-- RIGHT: History -->
+    <aside class="sidebar right">
+      <div class="history-header">
+        <h3>History</h3>
+        <div class="history-controls">
+          <button type="button" onclick="clearHistory()">Clear History</button>
+          <button type="button" onclick="exportHistory()">Export</button>
+        </div>
       </div>
-    </div>
+      <div class="sidebar-scroll">
+        <div class="history-content" id="historyContent"></div>
+      </div>
+    </aside>
   </div>
 
   <script>
-    // =========== Data & State ===========
+    /************ DATASETS MODEL ************/
+    const LS_DATASETS = 'spinWheelDatasets';
+    const LS_ACTIVE_DATASET_ID = 'spinWheelActiveDatasetId';
+    // Dataset: { id, name, items, currentId, history }
+
+    let datasets = [];
+    let activeDatasetId = null;
+
+    const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'ds_' + Math.random().toString(36).slice(2));
+
+    function saveDatasets() {
+      try { localStorage.setItem(LS_DATASETS, JSON.stringify(datasets)); } catch {}
+      try { localStorage.setItem(LS_ACTIVE_DATASET_ID, JSON.stringify(activeDatasetId)); } catch {}
+    }
+
+    function loadDatasets() {
+      const rawDs = localStorage.getItem(LS_DATASETS);
+      const rawActive = localStorage.getItem(LS_ACTIVE_DATASET_ID);
+
+      if (rawDs) { try { datasets = JSON.parse(rawDs) || []; } catch { datasets = []; } }
+      if (rawActive) { try { activeDatasetId = JSON.parse(rawActive) || null; } catch { activeDatasetId = null; } }
+
+      // Migrate legacy single dataset if present
+      const legacyData = localStorage.getItem('spinWheelData');
+      const legacyHistory = localStorage.getItem('spinWheelHistory');
+      if (!datasets.length && (legacyData || legacyHistory)) {
+        let items = []; let currentId = 0; let history = [];
+        try { if (legacyData) { const d = JSON.parse(legacyData); items = Array.isArray(d.items) ? d.items : []; currentId = d.currentId || 0; } } catch {}
+        try { if (legacyHistory) { const h = JSON.parse(legacyHistory); history = Array.isArray(h) ? h : []; } } catch {}
+        const ds = { id: newId(), name: 'Default', items, currentId, history };
+        datasets.push(ds); activeDatasetId = ds.id;
+        localStorage.removeItem('spinWheelData'); localStorage.removeItem('spinWheelHistory');
+        saveDatasets();
+      }
+
+      // Ensure at least one dataset exists
+      if (!datasets.length) {
+        const ds = { id: newId(), name: 'Default', items: [], currentId: 0, history: [] };
+        datasets.push(ds); activeDatasetId = ds.id; saveDatasets();
+      }
+
+      if (!datasets.find(d => d.id === activeDatasetId)) {
+        activeDatasetId = datasets[0].id; saveDatasets();
+      }
+    }
+
+    function getActiveDataset() { return datasets.find(d => d.id === activeDatasetId); }
+
+    function setActiveDataset(id) {
+      const ds = datasets.find(d => d.id === id);
+      if (!ds) return;
+
+      activeDatasetId = id;
+
+      items = (ds.items || []).map(it => ({
+        id: it.id, name: it.name,
+        tags: Array.isArray(it.tags) ? it.tags : [],
+        weight: sanitizeWeight(it.weight ?? 1, 1)
+      }));
+      currentId = Math.max(ds.currentId || 0, items.reduce((m,it)=>Math.max(m, it.id||0), 0) + 1);
+      history = Array.isArray(ds.history) ? ds.history : [];
+
+      saveDatasets();
+      renderDatasetsList();
+      renderHistory();
+      renderItemList();
+      drawWheel();
+
+      document.getElementById('activeDatasetBadge').textContent = 'Active: ' + (ds.name || '—');
+    }
+
+    function updateActiveDatasetSnapshot() {
+      const ds = getActiveDataset();
+      if (!ds) return;
+      ds.items = items;
+      ds.currentId = currentId;
+      ds.history = history;
+      saveDatasets();
+      renderDatasetsList(); // update counts
+    }
+
+    function addDatasetFromImport(name, imported) {
+      const cleanedItems = (imported.items || []).map(it => ({
+        id: it.id, name: it.name,
+        tags: Array.isArray(it.tags) ? it.tags : [],
+        weight: sanitizeWeight(it.weight ?? 1, 1)
+      }));
+      const maxId = cleanedItems.reduce((m, it) => Math.max(m, it.id || 0), 0);
+      const ds = {
+        id: newId(),
+        name: name || 'Imported',
+        items: cleanedItems,
+        currentId: Math.max(imported.currentId || 0, maxId + 1),
+        history: []
+      };
+      datasets.unshift(ds);
+      activeDatasetId = ds.id;
+      saveDatasets();
+      setActiveDataset(ds.id);
+    }
+
+    function renameDataset(id, newName) {
+      const ds = datasets.find(d => d.id === id);
+      if (!ds) return;
+      ds.name = newName || 'Untitled';
+      saveDatasets();
+      renderDatasetsList();
+      if (id === activeDatasetId) {
+        document.getElementById('activeDatasetBadge').textContent = 'Active: ' + ds.name;
+      }
+    }
+
+    function renderDatasetsList() {
+      const listEl = document.getElementById('datasetList');
+      listEl.innerHTML = '';
+
+      datasets.forEach(ds => {
+        const row = document.createElement('div');
+        row.className = 'dataset-row' + (ds.id === activeDatasetId ? ' active' : '');
+
+        const nameInput = document.createElement('input');
+        nameInput.className = 'dataset-name';
+        nameInput.value = ds.name || 'Untitled';
+        nameInput.oninput = () => renameDataset(ds.id, nameInput.value);
+
+        const info = document.createElement('span');
+        info.className = 'dataset-info';
+        const itemCount = (ds.items || []).length;
+        const histCount = (ds.history || []).length;
+        info.textContent = `${itemCount} items • ${histCount} logs`;
+
+        const btn = document.createElement('button');
+        btn.className = 'switch-btn';
+        btn.textContent = (ds.id === activeDatasetId) ? 'Active' : 'Switch';
+        btn.disabled = (ds.id === activeDatasetId);
+        btn.onclick = () => setActiveDataset(ds.id);
+
+        row.appendChild(nameInput);
+        row.appendChild(info);
+        row.appendChild(btn);
+        listEl.appendChild(row);
+      });
+    }
+
+    /************ APP STATE ************/
     let items = [];
     let currentId = 0;
     let activeFilterTags = [];
+    let history = [];
 
-    // Wheel references
     const wheelContainer = document.getElementById('wheelContainer');
     const canvas = document.getElementById('wheelCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Spin logic
-    let rotationAngle = 0;
-    let spinVelocity = 0;
+    // rotation/animation
+    let rotationAngle = 0;     // radians
+    let spinVelocity = 0;      // rad/s
     let spinning = false;
 
-    // For a smoother, ~3-second spin:
-    let friction = 0.99;       
-    let spinThreshold = 0.0002;
+    // RAF & suppression
+    let rafId = null;
+    let suppressPick = false;
 
-    // ========== Initialization ==========
-    loadFromLocalStorage();
-    adjustCanvasSize();
-    renderItemList();
-    drawWheel();
+    // drag/flick
+    let isDragging = false;
+    let lastPointerAngle = null;
+    let velocitySamples = []; // {t,dAngle}
+    const VELOCITY_WINDOW_MS = 120;
+    const MOVE_EPS = 0.01;
+    const HOLD_TO_CANCEL_MS = 120;
+    let lastSignificantMoveTs = 0;
+    let wasSpinningBeforeDrag = false;
 
-    // Recalculate the canvas if window changes size
-    window.addEventListener('resize', () => {
-      adjustCanvasSize();
-      drawWheel();
-    });
+    // physics
+    const DECAY_PER_SECOND = 0.55;
+    const MIN_VELOCITY_RAD_S = 0.05;
+    const BUTTON_START_V_RAD_S = 8.0;
+    const CANCEL_V = 0.25;
+    const SPIN_START_V = 0.50;
 
+    const historyContentEl = document.getElementById('historyContent');
+
+    /************ INIT ************/
+    loadDatasets();
+    setActiveDataset(activeDatasetId);
+
+    adjustCanvasSize(); drawWheel(); renderItemList(); renderHistory(); renderDatasetsList();
+    window.addEventListener('resize', () => { adjustCanvasSize(); drawWheel(); });
     function adjustCanvasSize() {
       const rect = wheelContainer.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      canvas.width = rect.width; canvas.height = rect.height;
     }
 
-    // ========== Item Management ==========
+    /************ UTILS ************/
+    const nowStr = () => new Date().toLocaleString();
+    function pushHistory(type, payload = {}) {
+      history.unshift({ id: crypto.randomUUID?.() ?? String(Math.random()), time: nowStr(), type, payload });
+      updateActiveDatasetSnapshot();
+      renderHistory();
+    }
+    function sanitizeWeight(val, fallback = 1) { let w = Number(val); if (!isFinite(w) || w <= 0) w = fallback; return w; }
+    function getPointerAngle(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (evt.clientX ?? evt.touches?.[0]?.clientX) - rect.left;
+      const y = (evt.clientY ?? evt.touches?.[0]?.clientY) - rect.top;
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      return Math.atan2(y - cy, x - cx);
+    }
+    function normAngleDelta(d) { while (d > Math.PI) d -= 2*Math.PI; while (d < -Math.PI) d += 2*Math.PI; return d; }
 
+    /************ Items ************/
     function addItem() {
       const nameInput = document.getElementById('newItemName');
       const tagsInput = document.getElementById('newItemTags');
+      const weightInput = document.getElementById('newItemWeight');
 
       const name = nameInput.value.trim();
-      if (!name) {
-        alert("Item name cannot be empty.");
-        return;
-      }
-      const tags = tagsInput.value
-        .split(',')
-        .map(t => t.trim())
-        .filter(t => t);
+      if (!name) { alert("Item name cannot be empty."); return; }
 
-      items.push({ id: currentId++, name, tags });
+      const tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+      const weight = sanitizeWeight(weightInput.value || 1, 1);
 
-      nameInput.value = '';
-      tagsInput.value = '';
-      saveToLocalStorage();
-      renderItemList();
-      drawWheel();
+      const newItem = { id: currentId++, name, tags, weight };
+      items.push(newItem);
+
+      nameInput.value = ''; tagsInput.value = ''; weightInput.value = '';
+      updateActiveDatasetSnapshot(); renderItemList(); drawWheel();
+
+      pushHistory('add_item', { name: newItem.name, tags: newItem.tags, weight: newItem.weight });
     }
-
     function updateItemName(id, newName) {
       const idx = items.findIndex(i => i.id === id);
       if (idx !== -1) {
+        const oldName = items[idx].name;
         items[idx].name = newName;
-        saveToLocalStorage();
-        drawWheel();
+        updateActiveDatasetSnapshot(); drawWheel();
+        if (oldName !== newName) pushHistory('rename_item', { from: oldName, to: newName });
       }
     }
-
     function updateItemTags(id, tagsString) {
-      const newTags = tagsString
-        .split(',')
-        .map(t => t.trim())
-        .filter(t => t);
-
+      const newTags = tagsString.split(',').map(t => t.trim()).filter(Boolean);
       const idx = items.findIndex(i => i.id === id);
       if (idx !== -1) {
         items[idx].tags = newTags;
-        saveToLocalStorage();
-        drawWheel();
+        updateActiveDatasetSnapshot(); drawWheel();
+        pushHistory('update_tags', { name: items[idx].name, tags: newTags });
       }
     }
-
+    function updateItemWeight(id, weightVal) {
+      const idx = items.findIndex(i => i.id === id);
+      if (idx !== -1) {
+        const oldW = items[idx].weight ?? 1;
+        const w = sanitizeWeight(weightVal, oldW || 1);
+        items[idx].weight = w;
+        updateActiveDatasetSnapshot(); drawWheel();
+        if (w !== oldW) pushHistory('update_weight', { name: items[idx].name, from: oldW, to: w });
+      }
+    }
     function deleteItem(id) {
+      const item = items.find(i => i.id === id);
       items = items.filter(i => i.id !== id);
-      saveToLocalStorage();
-      renderItemList();
-      drawWheel();
+      updateActiveDatasetSnapshot(); renderItemList(); drawWheel();
+      pushHistory('delete_item', { name: item ? item.name : '(unknown)' });
     }
 
-    // ========== Filtering ==========
-
+    /************ Filter ************/
     function applyFilter() {
-      const filterVal = document.getElementById('filterTags').value.trim();
-      if (!filterVal) {
-        clearFilter();
-        return;
-      }
-      activeFilterTags = filterVal
-        .split(',')
-        .map(t => t.trim())
-        .filter(t => t);
-
-      renderItemList();
-      drawWheel();
+      const v = document.getElementById('filterTags').value.trim();
+      activeFilterTags = v ? v.split(',').map(t => t.trim()).filter(Boolean) : [];
+      renderItemList(); drawWheel();
     }
-
     function clearFilter() {
-      activeFilterTags = [];
-      document.getElementById('filterTags').value = '';
-      renderItemList();
-      drawWheel();
+      activeFilterTags = []; document.getElementById('filterTags').value = '';
+      renderItemList(); drawWheel();
     }
-
     function matchesFilter(item) {
       if (!activeFilterTags.length) return true;
       return activeFilterTags.every(t => item.tags.includes(t));
     }
 
-    // ========== Render List ==========
-
+    /************ Render list ************/
     function renderItemList() {
-      const itemListEl = document.getElementById('itemList');
-      itemListEl.innerHTML = '';
-
+      const el = document.getElementById('itemList'); el.innerHTML = '';
       items.forEach(item => {
         if (!matchesFilter(item)) return;
-
-        const row = document.createElement('div');
-        row.className = 'item-row';
+        const row = document.createElement('div'); row.className = 'item-row';
 
         const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.placeholder = 'Item name...';
-        nameInput.value = item.name;
-        nameInput.oninput = () => updateItemName(item.id, nameInput.value);
+        nameInput.type = 'text'; nameInput.placeholder = 'Item name...';
+        nameInput.value = item.name; nameInput.oninput = () => updateItemName(item.id, nameInput.value);
 
         const tagsInput = document.createElement('input');
-        tagsInput.type = 'text';
-        tagsInput.placeholder = 'Tags...';
-        tagsInput.value = item.tags.join(', ');
-        tagsInput.oninput = () => updateItemTags(item.id, tagsInput.value);
+        tagsInput.type = 'text'; tagsInput.placeholder = 'Tags...';
+        tagsInput.value = (item.tags || []).join(', '); tagsInput.oninput = () => updateItemTags(item.id, tagsInput.value);
+
+        const weightInput = document.createElement('input');
+        weightInput.type = 'number'; weightInput.placeholder = 'Weight';
+        weightInput.min = '0.0001'; weightInput.step = '0.01';
+        weightInput.value = (item.weight ?? 1); weightInput.oninput = () => updateItemWeight(item.id, weightInput.value);
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn';
-        delBtn.textContent = 'Delete';
+        delBtn.className = 'delete-btn'; delBtn.textContent = 'Delete';
         delBtn.onclick = () => deleteItem(item.id);
 
-        row.appendChild(nameInput);
-        row.appendChild(tagsInput);
-        row.appendChild(delBtn);
-
-        itemListEl.appendChild(row);
+        row.appendChild(nameInput); row.appendChild(tagsInput); row.appendChild(weightInput); row.appendChild(delBtn);
+        el.appendChild(row);
       });
     }
 
-    // ========== Drawing the Wheel ==========
-
+    /************ Drawing (weighted wheel) ************/
     function drawWheel() {
       const visibleItems = items.filter(matchesFilter);
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const radius = Math.min(canvas.width, canvas.height) / 2 - 2;
+
       if (!visibleItems.length) {
-        const radius = Math.min(canvas.width, canvas.height) / 2 - 2;
-        ctx.beginPath();
-        ctx.arc(canvas.width/2, canvas.height/2, radius, 0, 2*Math.PI);
-        ctx.fillStyle = '#eee';
-        ctx.fill();
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#666';
-        ctx.font = '20px Arial';
-        ctx.fillText('No Items', canvas.width/2, canvas.height/2);
+        ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2*Math.PI); ctx.fillStyle = '#eee'; ctx.fill();
+        ctx.textAlign = 'center'; ctx.fillStyle = '#666'; ctx.font = '20px Arial'; ctx.fillText('No Items', cx, cy);
         return;
       }
 
-      const arcAngle = (2*Math.PI) / visibleItems.length;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radius = Math.min(canvas.width, canvas.height) / 2 - 2;
+      const weights = visibleItems.map(i => sanitizeWeight(i.weight ?? 1, 1));
+      const totalWeight = weights.reduce((a,b)=>a+b, 0); if (totalWeight <= 0) return;
 
-      for (let i=0; i<visibleItems.length; i++) {
-        const item = visibleItems[i];
-        const startAngle = arcAngle * i + rotationAngle;
-        const endAngle = startAngle + arcAngle;
+      let start = rotationAngle;
+      for (let i = 0; i < visibleItems.length; i++) {
+        const span = (2*Math.PI) * (weights[i] / totalWeight);
+        const startAngle = start, endAngle = start + span;
 
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.fillStyle = getSegmentColor(i, visibleItems.length);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, startAngle, endAngle);
+        ctx.fillStyle = getSegmentColor(i, visibleItems.length); ctx.fill(); ctx.stroke();
 
-        // Add text
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate((startAngle + endAngle)/2);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#000';
-        ctx.font = '14px Arial';
-        ctx.fillText(item.name, radius - 70, 5);
+        const mid = (startAngle + endAngle) / 2;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(mid);
+        ctx.textAlign = 'left'; ctx.fillStyle = '#000'; ctx.font = '14px Arial';
+        ctx.fillText(visibleItems[i].name, radius - 70, 5);
         ctx.restore();
+
+        start += span;
       }
     }
+    function getSegmentColor(i, total) { const hue = (360 / total) * i; return `hsl(${hue}, 60%, 70%)`; }
 
-    function getSegmentColor(i, total) {
-      const hue = (360 / total) * i;
-      return `hsl(${hue}, 60%, 70%)`;
+    /************ Spinning (time-based inertia) ************/
+    let lastAnimTime = null;
+    function animateSpin(ts) {
+      if (!spinning) { rafId = null; return; }
+      if (lastAnimTime == null) { lastAnimTime = ts; rafId = requestAnimationFrame(animateSpin); return; }
+
+      const dt = Math.max(0, (ts - lastAnimTime) / 1000);
+      lastAnimTime = ts;
+
+      rotationAngle = (rotationAngle + spinVelocity * dt) % (2*Math.PI);
+      const decay = Math.pow(DECAY_PER_SECOND, dt);
+      spinVelocity *= decay;
+
+      drawWheel();
+
+      if (Math.abs(spinVelocity) > MIN_VELOCITY_RAD_S) {
+        rafId = requestAnimationFrame(animateSpin);
+      } else {
+        spinning = false; spinVelocity = 0; lastAnimTime = null; rafId = null;
+        if (!suppressPick) pickWinner();
+        suppressPick = false;
+      }
     }
-
-    // ========== Spinning Logic ==========
 
     function spinWheel() {
       const visibleItems = items.filter(matchesFilter);
-      if (!visibleItems.length) {
-        alert("No items to spin!");
-        return;
-      }
+      if (!visibleItems.length) { alert("No items to spin!"); return; }
       if (spinning) return;
 
-      spinning = true;
+      suppressPick = false; spinning = true;
+      document.getElementById('winnerDisplay').textContent = "";
 
-      const winnerDisplay = document.getElementById('winnerDisplay');
-      winnerDisplay.textContent = "";
-
-      // Randomize the starting angle so each spin is unique
-      random = Math.random();
-      rotationAngle = random * 2 * Math.PI;
-      console.log("random = " + random);
-
-      // Larger initial velocity => longer spin (~3s).
-      spinVelocity = 0.55;
-
-      function animateSpin() {
-        rotationAngle += spinVelocity;
-        rotationAngle %= (2*Math.PI);
-        spinVelocity *= friction; // apply friction every frame
-
-        drawWheel();
-
-        // We'll stop once spinVelocity is very small:
-        if (spinVelocity > spinThreshold) {
-          requestAnimationFrame(animateSpin);
-        } else {
-          spinning = false;
-          spinVelocity = 0;
-          pickWinner();
-        }
-      }
-      requestAnimationFrame(animateSpin);
+      rotationAngle = Math.random() * 2 * Math.PI;
+      spinVelocity = BUTTON_START_V_RAD_S;
+      lastAnimTime = null;
+      rafId = requestAnimationFrame(animateSpin);
     }
 
+    /************ Winner (weighted mapping) ************/
     function pickWinner() {
       const visibleItems = items.filter(matchesFilter);
       const winnerDisplay = document.getElementById('winnerDisplay');
+      if (!visibleItems.length) { winnerDisplay.textContent = "No winner (no items)"; return; }
 
-      if (!visibleItems.length) {
-        winnerDisplay.textContent = "No winner (no items)";
+      const weights = visibleItems.map(i => sanitizeWeight(i.weight ?? 1, 1));
+      const totalWeight = weights.reduce((a,b)=>a+b, 0);
+
+      let localAngle = (-rotationAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+
+      let cum = 0, idx = 0;
+      for (let i = 0; i < visibleItems.length; i++) {
+        const span = (2*Math.PI) * (weights[i] / totalWeight);
+        if (localAngle >= cum && localAngle < cum + span) { idx = i; break; }
+        cum += span;
+      }
+
+      const winner = visibleItems[idx];
+      winnerDisplay.textContent = `Winner: ${winner.name}`;
+      pushHistory('spin', {
+        winner: winner.name,
+        weight: sanitizeWeight(winner.weight ?? 1, 1),
+        tags: [...(winner.tags || [])],
+        filteredBy: [...activeFilterTags],
+        poolCount: visibleItems.length,
+        totalWeight: totalWeight
+      });
+    }
+
+    /************ Drag / Flick (cancel-on-hold + speed gating) ************/
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      wasSpinningBeforeDrag = spinning;
+
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      if (wasSpinningBeforeDrag) suppressPick = true;
+
+      spinning = false; spinVelocity = 0; lastAnimTime = null;
+
+      isDragging = true; velocitySamples = [];
+      lastPointerAngle = getPointerAngle(e);
+      lastSignificantMoveTs = performance.now();
+      wheelContainer.classList.add('grabbing');
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      const ang = getPointerAngle(e);
+      if (lastPointerAngle == null) { lastPointerAngle = ang; return; }
+
+      let d = normAngleDelta(ang - lastPointerAngle);
+      rotationAngle = (rotationAngle + d) % (2 * Math.PI);
+      drawWheel();
+
+      const now = performance.now();
+      if (Math.abs(d) >= MOVE_EPS) lastSignificantMoveTs = now;
+
+      velocitySamples.push({ t: now, dAngle: d });
+      const cutoff = now - VELOCITY_WINDOW_MS;
+      while (velocitySamples.length && velocitySamples[0].t < cutoff) velocitySamples.shift();
+
+      lastPointerAngle = ang;
+    });
+
+    function endDrag(e) {
+      if (!isDragging) return;
+      e && e.preventDefault();
+
+      isDragging = false;
+      wheelContainer.classList.remove('grabbing');
+      lastPointerAngle = null;
+
+      const now = performance.now();
+      const heldLongEnough = (now - lastSignificantMoveTs) >= HOLD_TO_CANCEL_MS;
+
+      if (!velocitySamples.length) {
+        if (wasSpinningBeforeDrag) { suppressPick = false; pickWinner(); }
         return;
       }
 
-      const arcAngle = (2*Math.PI) / visibleItems.length;
-      let localAngle = -rotationAngle;
-      localAngle = (localAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+      const firstT = velocitySamples[0].t;
+      const lastT  = velocitySamples[velocitySamples.length - 1].t;
+      const totalMs = Math.max(1, lastT - firstT);
+      const netAngle = velocitySamples.reduce((s, smp) => s + smp.dAngle, 0);
+      const vWindow = (netAngle / totalMs) * 1000; // rad/s
 
-      const idx = Math.floor(localAngle / arcAngle);
-      const winner = visibleItems[idx];
-      winnerDisplay.textContent = `Winner: ${winner.name}`;
-    }
+      let vInstant = 0;
+      if (velocitySamples.length >= 2) {
+        const a = velocitySamples[velocitySamples.length - 2];
+        const b = velocitySamples[velocitySamples.length - 1];
+        const dt = Math.max(1, b.t - a.t);
+        vInstant = (b.dAngle / dt) * 1000;
+      } else { vInstant = vWindow; }
 
-    // ========== Persistence ==========
+      if (!wasSpinningBeforeDrag && heldLongEnough && Math.abs(vInstant) < 0.25) return;
+      if (wasSpinningBeforeDrag && heldLongEnough && Math.abs(vInstant) < 0.25) { suppressPick = false; pickWinner(); return; }
 
-    function saveToLocalStorage() {
-      const data = { currentId, items };
-      localStorage.setItem('spinWheelData', JSON.stringify(data));
-    }
+      const shouldStartInertia = (Math.abs(vInstant) >= 0.50) && (Math.abs(vWindow) >= 0.50);
 
-    function loadFromLocalStorage() {
-      const raw = localStorage.getItem('spinWheelData');
-      if (!raw) return;
-      try {
-        const data = JSON.parse(raw);
-        if (data && Array.isArray(data.items)) {
-          items = data.items;
-          currentId = data.currentId || 0;
-        }
-      } catch(e) {
-        console.warn("Failed to parse localStorage data:", e);
+      if (!shouldStartInertia) {
+        if (wasSpinningBeforeDrag) { suppressPick = false; pickWinner(); }
+        return;
       }
+
+      suppressPick = false;
+      spinVelocity = vWindow;
+      spinning = true;
+      document.getElementById('winnerDisplay').textContent = "";
+      lastAnimTime = null;
+      rafId = requestAnimationFrame(animateSpin);
     }
 
-    // ========== Import/Export ==========
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+    canvas.addEventListener('pointerleave', (e) => {
+      if (isDragging && !canvas.hasPointerCapture?.(e.pointerId)) endDrag(e);
+    });
 
+    /************ Import / Export / Clear ************/
     function exportData() {
-      // Convert items/currentId to JSON, then trigger download
       const dataStr = JSON.stringify({ currentId, items }, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'spinWheelData.json';
-      link.click();
-
+      const link = document.createElement('a'); link.href = url; link.download = 'spinWheelData.json'; link.click();
       URL.revokeObjectURL(url);
+      pushHistory('export_items', { itemCount: items.length });
     }
 
     function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
+      const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
           if (imported && Array.isArray(imported.items)) {
-            items = imported.items;
-            currentId = imported.currentId || 0;
-            saveToLocalStorage();
-            renderItemList();
-            drawWheel();
+            const base = (file.name || 'Imported').replace(/\.[^/.]+$/, '');
+            addDatasetFromImport(base, imported);
+            pushHistory('import_items', { itemCount: imported.items.length, fileName: file.name });
           } else {
             alert("Invalid JSON format for items.");
           }
         } catch (err) {
-          alert("Failed to parse JSON file.");
-          console.error(err);
+          alert("Failed to parse JSON file."); console.error(err);
         }
       };
-      reader.readAsText(file);
-
-      // Reset file input so user can re-import the same file if needed
-      event.target.value = "";
+      reader.readAsText(file); event.target.value = "";
     }
+
+    function clearData() {
+      const step1 = confirm('This will clear all current ITEMS in the active dataset. Continue?');
+      if (!step1) return;
+      const step2 = confirm('Are you absolutely sure? This cannot be undone.');
+      if (!step2) return;
+
+      items = []; currentId = 0;
+      updateActiveDatasetSnapshot();
+      renderItemList(); drawWheel();
+      pushHistory('clear_items', {});
+    }
+
+    /************ History (per dataset) ************/
+    function clearHistory() {
+      if (!confirm('Clear the entire history panel for this dataset?')) return;
+      history = [];
+      updateActiveDatasetSnapshot();
+      renderHistory();
+    }
+    function exportHistory() {
+      const dataStr = JSON.stringify(history, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = 'spinWheelHistory.json'; link.click();
+      URL.revokeObjectURL(url);
+    }
+    function renderHistory() {
+      historyContentEl.innerHTML = '';
+      if (!history.length) {
+        const empty = document.createElement('div'); empty.style.color = '#666'; empty.style.fontSize = '13px'; empty.textContent = 'No history yet.';
+        historyContentEl.appendChild(empty); return;
+      }
+      history.forEach(entry => {
+        const div = document.createElement('div'); div.className = 'history-item';
+        let title = '', details = '';
+        switch (entry.type) {
+          case 'spin':
+            title = `🎯 Winner: ${entry.payload.winner}`;
+            details = `Total weight: ${Number(entry.payload.totalWeight).toFixed(2)} • Pool: ${entry.payload.poolCount}`;
+            if (entry.payload.filteredBy?.length) details += ` • Filter: ${entry.payload.filteredBy.join(', ')}`;
+            if (entry.payload.weight != null) details += ` • Winner weight: ${entry.payload.weight}`;
+            if (entry.payload.tags?.length) details += ` • Tags: ${entry.payload.tags.join(', ')}`;
+            break;
+          case 'add_item':
+            title = `➕ Added: ${entry.payload.name}`;
+            details = `Weight: ${entry.payload.weight}` + (entry.payload.tags?.length ? ` • Tags: ${entry.payload.tags.join(', ')}` : '');
+            break;
+          case 'rename_item':
+            title = `✏️ Renamed`; details = `${entry.payload.from} → ${entry.payload.to}`; break;
+          case 'update_tags':
+            title = `🏷️ Updated Tags: ${entry.payload.name}`;
+            details = (entry.payload.tags && entry.payload.tags.length) ? entry.payload.tags.join(', ') : '—'; break;
+          case 'update_weight':
+            title = `⚖️ Updated Weight: ${entry.payload.name}`;
+            details = `${entry.payload.from} → ${entry.payload.to}`; break;
+          case 'delete_item':
+            title = `🗑️ Deleted: ${entry.payload.name}`; break;
+          case 'import_items':
+            title = `📥 Imported Items`;
+            details = `${entry.payload.itemCount ?? 0} items` + (entry.payload.fileName ? ` • ${entry.payload.fileName}` : ''); break;
+          case 'export_items':
+            title = `📤 Exported Items`; details = `${entry.payload.itemCount ?? 0} items`; break;
+          case 'clear_items':
+            title = `⚠️ Cleared All Items`; details = 'All current items removed'; break;
+          default: title = entry.type;
+        }
+        const titleEl = document.createElement('div'); titleEl.textContent = title; div.appendChild(titleEl);
+        if (details) { const detailsEl = document.createElement('div'); detailsEl.style.color = '#444'; detailsEl.style.marginTop = '2px'; detailsEl.textContent = details; div.appendChild(detailsEl); }
+        const timeEl = document.createElement('div'); timeEl.className = 'time'; timeEl.textContent = entry.time; div.appendChild(timeEl);
+        historyContentEl.appendChild(div);
+      });
+    }
+
+    /* helper for segment color */
+    function getSegmentColor(i, total) { const hue = (360 / total) * i; return `hsl(${hue}, 60%, 70%)`; }
   </script>
 </body>
 </html>
