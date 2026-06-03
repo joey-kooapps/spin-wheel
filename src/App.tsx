@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import { Github, Zap } from 'lucide-react';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DatasetsPanel } from './components/DatasetsPanel';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -9,7 +8,7 @@ import { WheelStage } from './components/WheelStage';
 import { appReducer, getActiveDataset } from './state/appState';
 import { loadAppState, saveAppState } from './state/storage';
 import type { ConfirmRequest, Dataset, WheelItem, WinnerResult } from './types';
-import { createHistory, getVisibleItems, makeDataset, parseTags } from './utils/data';
+import { createHistory, getVisibleItems, makeDataset, normalizeTag } from './utils/data';
 import './styles.css';
 
 function spinHistory(winner: WinnerResult) {
@@ -26,17 +25,40 @@ function spinHistory(winner: WinnerResult) {
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, loadAppState);
   const [activeTab, setActiveTab] = useState<InspectorTab>('items');
-  const [filterInput, setFilterInput] = useState('');
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const activeDataset = getActiveDataset(state);
   const visibleItems = useMemo(
     () => getVisibleItems(activeDataset.items, state.filterTags),
     [activeDataset.items, state.filterTags],
   );
+  const availableTags = useMemo(() => {
+    const seen = new Set<string>();
+    const tags: string[] = [];
+
+    activeDataset.items.forEach((item) => {
+      item.tags.forEach((tag) => {
+        const display = String(tag || '').trim();
+        const key = normalizeTag(display);
+        if (!display || seen.has(key)) return;
+        seen.add(key);
+        tags.push(display);
+      });
+    });
+
+    return tags.sort((a, b) => a.localeCompare(b));
+  }, [activeDataset.items]);
 
   useEffect(() => {
     saveAppState(state);
   }, [state]);
+
+  useEffect(() => {
+    const availableKeys = new Set(availableTags.map(normalizeTag));
+    const validFilters = state.filterTags.filter((tag) => availableKeys.has(normalizeTag(tag)));
+    if (validFilters.length !== state.filterTags.length) {
+      dispatch({ type: 'set-filter-tags', tags: validFilters });
+    }
+  }, [availableTags, state.filterTags]);
 
   const addDataset = () => {
     const dataset = makeDataset(`Dataset ${state.datasets.length + 1}`);
@@ -81,12 +103,16 @@ export default function App() {
     dispatch({ type: 'update-item', itemId: item.id, changes, history });
   };
 
-  const applyFilter = () => {
-    dispatch({ type: 'set-filter-tags', tags: parseTags(filterInput) });
+  const toggleFilterTag = (tag: string) => {
+    const key = normalizeTag(tag);
+    const selected = state.filterTags.some((activeTag) => normalizeTag(activeTag) === key);
+    const tags = selected
+      ? state.filterTags.filter((activeTag) => normalizeTag(activeTag) !== key)
+      : [...state.filterTags, tag];
+    dispatch({ type: 'set-filter-tags', tags });
   };
 
   const clearFilter = () => {
-    setFilterInput('');
     dispatch({ type: 'clear-filter' });
   };
 
@@ -147,31 +173,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true">
-            <Zap size={23} fill="currentColor" />
-          </div>
-          <div>
-            <p className="eyebrow">GitHub Pages ready</p>
-            <span className="brand-name">Spin Wheel</span>
-          </div>
-        </div>
-        <a className="github-link" href="https://github.com/joey-kooapps/spin-wheel" target="_blank" rel="noreferrer">
-          <Github size={18} aria-hidden="true" />
-          <span>Source</span>
-        </a>
-      </header>
-
       <main className="workspace">
         <WheelStage
           allItems={activeDataset.items}
           visibleItems={visibleItems}
           filterTags={state.filterTags}
-          filterInput={filterInput}
+          availableTags={availableTags}
           winner={state.winner}
-          onFilterInputChange={setFilterInput}
-          onApplyFilter={applyFilter}
+          onToggleFilterTag={toggleFilterTag}
           onClearFilter={clearFilter}
           onClearWinner={() => dispatch({ type: 'clear-winner' })}
           onWinner={(winner) => dispatch({ type: 'record-spin', winner, history: spinHistory(winner) })}

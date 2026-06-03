@@ -20,17 +20,17 @@ describe('App', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toContain('Prize');
   });
 
-  it('applies a filter and uses a dialog for destructive item delete', () => {
+  it('toggles tag filters and uses a dialog for destructive item delete', () => {
     render(<App />);
 
     fireEvent.change(screen.getByPlaceholderText('Item 1'), { target: { value: 'Prize' } });
     fireEvent.change(screen.getByPlaceholderText('team, prize'), { target: { value: 'alpha' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
 
-    fireEvent.change(screen.getByPlaceholderText('Filter tags'), { target: { value: 'alpha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply tag filter' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Filter tags' }));
+    fireEvent.click(screen.getByRole('button', { name: 'alpha' }));
 
-    expect(screen.getByText(/Showing 1 of 1 item matching alpha/)).toBeInTheDocument();
+    expect(screen.getByText('1/1 visible')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Prize' }));
     expect(screen.getByRole('dialog', { name: 'Delete item?' })).toBeInTheDocument();

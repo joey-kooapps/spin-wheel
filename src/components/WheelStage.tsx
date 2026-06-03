@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Filter, Play, RotateCcw, Sparkles, X } from 'lucide-react';
+import { Filter, Play, Sparkles, X } from 'lucide-react';
 import type { WheelItem, WinnerResult } from '../types';
-import { getVisibleItems, plural, sanitizeWeight } from '../utils/data';
+import { normalizeTag, sanitizeWeight } from '../utils/data';
 import { normalizeAngle, pickWinnerByAngle, segmentColor } from '../utils/wheel';
 
 const TWO_PI = Math.PI * 2;
@@ -16,10 +16,9 @@ interface WheelStageProps {
   allItems: WheelItem[];
   visibleItems: WheelItem[];
   filterTags: string[];
-  filterInput: string;
+  availableTags: string[];
   winner: WinnerResult | null;
-  onFilterInputChange: (value: string) => void;
-  onApplyFilter: () => void;
+  onToggleFilterTag: (tag: string) => void;
   onClearFilter: () => void;
   onWinner: (winner: WinnerResult) => void;
   onClearWinner: () => void;
@@ -59,10 +58,9 @@ export function WheelStage({
   allItems,
   visibleItems,
   filterTags,
-  filterInput,
+  availableTags,
   winner,
-  onFilterInputChange,
-  onApplyFilter,
+  onToggleFilterTag,
   onClearFilter,
   onWinner,
   onClearWinner,
@@ -80,6 +78,7 @@ export function WheelStage({
   const [rotationAngle, setRotationAngle] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [grabbing, setGrabbing] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const dragRef = useRef({
     isDragging: false,
     lastAngle: 0,
@@ -94,13 +93,7 @@ export function WheelStage({
     onWinnerRef.current = onWinner;
   }, [filterTags, onWinner, visibleItems]);
 
-  const summary = useMemo(() => {
-    if (!allItems.length) return 'Add items to build your wheel.';
-    if (filterTags.length) {
-      return `Showing ${visibleItems.length} of ${plural(allItems.length, 'item')} matching ${filterTags.join(', ')}`;
-    }
-    return `${plural(allItems.length, 'item')} in the wheel`;
-  }, [allItems.length, filterTags, visibleItems.length]);
+  const activeFilterKeys = useMemo(() => new Set(filterTags.map(normalizeTag)), [filterTags]);
 
   const drawWheel = useCallback(() => {
     const canvas = canvasRef.current;
@@ -381,14 +374,13 @@ export function WheelStage({
   return (
     <section className="wheel-stage" aria-label="Spin wheel">
       <div className="stage-toolbar">
-        <div>
-          <p className="eyebrow">Spin control</p>
-          <h1>Spin Wheel</h1>
-        </div>
+        <h1 className={winner ? 'has-winner' : 'is-empty'} aria-live="polite">
+          {winner?.item.name ?? ''}
+        </h1>
         <div className="stage-metrics" aria-label="Wheel metrics">
           <span className="metric-chip">
             <Sparkles size={15} aria-hidden="true" />
-            {visibleItems.length} visible
+            {visibleItems.length}/{allItems.length} visible
           </span>
           <span className="metric-chip accent">
             {allItems.reduce((total, item) => total + sanitizeWeight(item.weight, 1), 0).toFixed(2)} weight
@@ -419,53 +411,58 @@ export function WheelStage({
       </div>
 
       <div className="spin-panel">
-        <button className="spin-button" type="button" disabled={!visibleItems.length || spinning} onClick={startButtonSpin}>
-          <Play size={20} fill="currentColor" aria-hidden="true" />
-          {spinning ? 'Spinning' : 'Spin'}
-        </button>
+        <div className="spin-actions">
+          <button className="spin-button" type="button" disabled={!visibleItems.length || spinning} onClick={startButtonSpin}>
+            <Play size={20} fill="currentColor" aria-hidden="true" />
+            Spin
+          </button>
+          <button
+            className={`filter-toggle ${filterOpen ? 'active' : ''}`}
+            type="button"
+            aria-expanded={filterOpen}
+            aria-controls="filterPanel"
+            aria-label={filterTags.length ? `Filter tags, ${filterTags.length} selected` : 'Filter tags'}
+            onClick={() => setFilterOpen((open) => !open)}
+          >
+            <Filter size={18} aria-hidden="true" />
+            {filterTags.length > 0 && <span>{filterTags.length}</span>}
+          </button>
+        </div>
 
-        <form
-          className="filter-control"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onApplyFilter();
-          }}
-        >
-          <label className="sr-only" htmlFor="filterTags">
-            Filter tags
-          </label>
-          <div className="input-with-icon">
-            <Filter size={16} aria-hidden="true" />
-            <input
-              id="filterTags"
-              value={filterInput}
-              onChange={(event) => onFilterInputChange(event.target.value)}
-              placeholder="Filter tags"
-            />
+        {filterOpen && (
+          <div className="filter-panel" id="filterPanel">
+            <div className="filter-panel-header">
+              <strong>Filter tags</strong>
+              {filterTags.length > 0 && (
+                <button className="button quiet compact" type="button" onClick={onClearFilter}>
+                  <X size={15} aria-hidden="true" />
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="filter-tags" aria-label="Available filter tags">
+              {availableTags.length ? (
+                availableTags.map((tag) => {
+                  const selected = activeFilterKeys.has(normalizeTag(tag));
+                  return (
+                    <button
+                      className={`tag-filter ${selected ? 'selected' : ''}`}
+                      key={tag}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => onToggleFilterTag(tag)}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="filter-empty">Add tags to items to filter the wheel.</span>
+              )}
+            </div>
           </div>
-          <button className="icon-button" type="submit" aria-label="Apply tag filter">
-            <Filter size={17} aria-hidden="true" />
-          </button>
-          <button className="icon-button ghost" type="button" onClick={onClearFilter} aria-label="Clear tag filter">
-            <X size={18} aria-hidden="true" />
-          </button>
-        </form>
-      </div>
-
-      <div className="status-strip" role="status" aria-live="polite">
-        {winner ? (
-          <strong>Winner: {winner.item.name}</strong>
-        ) : (
-          <span>{visibleItems.length ? summary : allItems.length ? 'No items match the active filter.' : summary}</span>
         )}
       </div>
-
-      {filterTags.length > 0 && (
-        <button className="button quiet compact" type="button" onClick={onClearFilter}>
-          <RotateCcw size={15} aria-hidden="true" />
-          Clear {filterTags.join(', ')}
-        </button>
-      )}
     </section>
   );
 }
