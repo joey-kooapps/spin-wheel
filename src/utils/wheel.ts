@@ -2,6 +2,7 @@ import type { WheelItem, WinnerResult } from '../types';
 import { sanitizeWeight } from './data';
 
 const TWO_PI = Math.PI * 2;
+const WINNER_POINTER_ANGLE = -Math.PI / 2;
 
 export const wheelPalette = [
   '#41d1ff',
@@ -36,7 +37,7 @@ export function pickWinnerByAngle(
   const totalWeight = weights.reduce((total, weight) => total + weight, 0);
   if (totalWeight <= 0) return null;
 
-  const localAngle = normalizeAngle(-rotationAngle);
+  const localAngle = normalizeAngle(WINNER_POINTER_ANGLE - rotationAngle);
   let cursor = 0;
 
   for (let index = 0; index < visibleItems.length; index += 1) {

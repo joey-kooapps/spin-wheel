@@ -361,22 +361,24 @@ a {
 
 .wheel-pointer {
   position: absolute;
-  top: 50%;
-  right: -8px;
-  width: 42px;
+  top: -10px;
+  right: auto;
+  left: 50%;
+  width: 46px;
   height: 42px;
-  transform: translateY(-50%) rotate(45deg);
-  border-top: 1px solid rgba(255, 255, 255, 0.8);
-  border-right: 1px solid rgba(255, 255, 255, 0.8);
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-bottom: 0;
   background: linear-gradient(135deg, var(--yellow), var(--orange));
   box-shadow: 0 0 24px rgba(255, 234, 131, 0.34);
-  clip-path: polygon(16% 16%, 100% 0, 84% 84%);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
 }
 
 .spin-panel {
   position: relative;
   z-index: 1;
   width: min(100%, 690px);
+  justify-self: center;
   display: grid;
   grid-template-columns: 1fr;
   justify-items: center;
@@ -942,9 +944,9 @@ label {
   }
 
   .wheel-pointer {
-    right: -4px;
-    width: 32px;
-    height: 32px;
+    top: -7px;
+    width: 34px;
+    height: 31px;
   }
 
   .spin-panel {

@@ -8,8 +8,8 @@ const items = [
 
 describe('wheel utilities', () => {
   it('maps rotation angle to the weighted segment at the pointer', () => {
-    expect(pickWinnerByAngle(items, 0, [])?.item.name).toBe('Alpha');
-    expect(pickWinnerByAngle(items, -Math.PI, ['final'])?.item.name).toBe('Beta');
+    expect(pickWinnerByAngle(items, -Math.PI / 2, [])?.item.name).toBe('Alpha');
+    expect(pickWinnerByAngle(items, 0, ['final'])?.item.name).toBe('Beta');
   });
 
   it('returns null for an empty pool', () => {
