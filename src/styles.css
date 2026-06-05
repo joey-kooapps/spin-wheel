@@ -309,6 +309,21 @@ a {
   gap: 6px;
 }
 
+.content-toggle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  color: var(--muted-strong);
+}
+
+.content-toggle.active {
+  border-color: rgba(255, 234, 131, 0.52);
+  color: var(--yellow);
+  background: rgba(255, 234, 131, 0.1);
+  box-shadow: 0 0 24px rgba(255, 234, 131, 0.16);
+}
+
 .metric-chip,
 .dataset-count,
 .tab-count,
@@ -350,6 +365,10 @@ a {
 
 .wheel-frame.is-grabbing {
   cursor: grabbing;
+}
+
+.wheel-frame.contents-hidden {
+  filter: drop-shadow(0 16px 36px rgba(65, 209, 255, 0.11));
 }
 
 .wheel-frame canvas {

@@ -38,4 +38,16 @@ describe('App', () => {
 
     expect(screen.getByText('No items yet.')).toBeInTheDocument();
   });
+
+  it('toggles wheel contents visibility from the stage toolbar', () => {
+    render(<App />);
+
+    const hideButton = screen.getByRole('button', { name: 'Hide wheel contents' });
+    expect(hideButton).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(hideButton);
+
+    const showButton = screen.getByRole('button', { name: 'Show wheel contents' });
+    expect(showButton).toHaveAttribute('aria-pressed', 'true');
+  });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Filter, Play, Sparkles, X } from 'lucide-react';
+import { Eye, EyeOff, Filter, Play, Sparkles, X } from 'lucide-react';
 import type { WheelItem, WinnerResult } from '../types';
 import { normalizeTag, sanitizeWeight } from '../utils/data';
 import { normalizeAngle, pickWinnerByAngle, segmentColor } from '../utils/wheel';
@@ -79,6 +79,7 @@ export function WheelStage({
   const [spinning, setSpinning] = useState(false);
   const [grabbing, setGrabbing] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [contentsHidden, setContentsHidden] = useState(false);
   const dragRef = useRef({
     isDragging: false,
     lastAngle: 0,
@@ -169,14 +170,14 @@ export function WheelStage({
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = color;
+      ctx.fillStyle = contentsHidden ? 'rgba(214, 220, 255, 0.1)' : color;
       ctx.fill();
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = 'rgba(5, 8, 18, 0.76)';
+      ctx.strokeStyle = contentsHidden ? 'rgba(255, 255, 255, 0.12)' : 'rgba(5, 8, 18, 0.76)';
       ctx.stroke();
 
       const mid = (startAngle + endAngle) / 2;
-      if (span > 0.08 && radius > 110) {
+      if (!contentsHidden && span > 0.08 && radius > 110) {
         const labelAngle = normalizeAngle(mid);
         ctx.save();
         ctx.translate(cx, cy);
@@ -213,7 +214,7 @@ export function WheelStage({
     ctx.arc(cx, cy, Math.max(8, radius * 0.03), 0, TWO_PI);
     ctx.fillStyle = '#ffea83';
     ctx.fill();
-  }, [allItems.length, rotationAngle, visibleItems]);
+  }, [allItems.length, contentsHidden, rotationAngle, visibleItems]);
 
   useEffect(() => {
     drawWheel();
@@ -374,6 +375,16 @@ export function WheelStage({
   return (
     <section className="wheel-stage" aria-label="Spin wheel">
       <div className="stage-toolbar">
+        <button
+          className={`icon-button ghost content-toggle ${contentsHidden ? 'active' : ''}`}
+          type="button"
+          aria-label={contentsHidden ? 'Show wheel contents' : 'Hide wheel contents'}
+          aria-pressed={contentsHidden}
+          title={contentsHidden ? 'Show wheel contents' : 'Hide wheel contents'}
+          onClick={() => setContentsHidden((hidden) => !hidden)}
+        >
+          {contentsHidden ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
+        </button>
         <h1 className={winner ? 'has-winner' : 'is-empty'} aria-live="polite">
           {winner?.item.name ?? ''}
         </h1>
@@ -388,7 +399,7 @@ export function WheelStage({
         </div>
       </div>
 
-      <div className={`wheel-frame ${grabbing ? 'is-grabbing' : ''}`} ref={wheelRef}>
+      <div className={`wheel-frame ${grabbing ? 'is-grabbing' : ''} ${contentsHidden ? 'contents-hidden' : ''}`} ref={wheelRef}>
         <canvas
           ref={canvasRef}
           role="img"
